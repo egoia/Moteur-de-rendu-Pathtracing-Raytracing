@@ -10,8 +10,10 @@ struct Vector3{
     public : 
         
         Vector3(float x, float y, float z) : x(x), y(y), z(z) {}
+        Vector3() : x(0), y(0), z(0) {}
 
         std::string toString() const; 
+        Vector3 copy();
 
         Vector3 operator+(const Vector3 a) const;
         Vector3 operator-(const Vector3 a) const;

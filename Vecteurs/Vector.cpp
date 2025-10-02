@@ -72,3 +72,7 @@ Vector3 Vector3::CrossProduct(const Vector3 a, const Vector3 b){
 float Vector3::Angle(const Vector3 a, const Vector3 b){
     return acos(DotProduct(a,b)/a.magnitude()*b.magnitude());
 };
+
+Vector3 Vector3::copy(){
+    return Vector3(this->x, this->y, this->z);
+}
