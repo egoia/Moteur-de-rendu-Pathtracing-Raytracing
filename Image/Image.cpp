@@ -2,13 +2,9 @@
 #include <fstream>
 #include <vector>
 #include "../Vecteurs/Vector.h"
+#include "Image.h"
 
-struct PPM{
-    public:
-        int height, width;
-        int maxValue;
-        std::vector<Vector3> pixels;
-};
+
 
 int readPPM(std::string fileName, PPM& image){
     std::fstream imageStream;
@@ -64,4 +60,12 @@ int writePPM(std::string fileName, PPM image){
     return 0;
 };
 
-
+/*
+int main(int argc, char *argv[]){
+    PPM image;
+    image.maxValue = 255;
+    image.height = 720;
+    image.width = 1280;
+    image.pixels = std::vector<Vector3>(image.width * image.height, Vector3(255, 0, 0));
+    writePPM("rouge.ppm", image);
+};*/
