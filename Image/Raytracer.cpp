@@ -71,9 +71,9 @@ struct Camera{
     };
 
     bool send_depth_ray(Ray ray, Sphere sphere, float& t){
-        Vector3 OC = ray.origin - sphere.centre;
+        Vector3 OC = sphere.centre - ray.origin;
         float c = (Vector3::DotProduct(OC,OC)) - (sphere.rayon*sphere.rayon);
-        float b = 2*Vector3::DotProduct(OC, ray.direction);
+        float b = -2*Vector3::DotProduct(OC, ray.direction);
         float a = (Vector3::DotProduct(ray.direction,ray.direction));//dot(a,a) == norm2(a)
         float delta = b*b - 4 * a * c;
         if(delta>=0){
