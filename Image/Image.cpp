@@ -43,19 +43,26 @@ int writePPM(std::string fileName, PPM image){
         std::cerr << "Erreur d'ouverture" << std::endl;
         return 1;
     }
+    
+    std::cerr <<"lala";
+
+    std::ostringstream buffer;
 
     std::string format = "P3";
-    imageStream << format << std::endl;
+    buffer << format << std::endl;
 
-    imageStream << image.width << " "<< image.height << std::endl;
-    imageStream << image.maxValue << std::endl;
+    buffer << image.width << " "<< image.height << std::endl;
+    buffer << image.maxValue << std::endl;
     for(int i = 0; i<image.height; i++){
         for(int j = 0; j<image.width; j++){
-            imageStream << image.pixels[i*image.width + j].x << " ";
-            imageStream << image.pixels[i*image.width + j].y << " ";
-            imageStream << image.pixels[i*image.width + j].z << std::endl;
+            buffer << image.pixels[i*image.width + j].x << " ";
+            buffer << image.pixels[i*image.width + j].y << " ";
+            buffer << image.pixels[i*image.width + j].z << "\n";
         }
     }
+    imageStream << buffer.str();
+    
+    std::cerr <<"end";
     imageStream.close();
     return 0;
 };
