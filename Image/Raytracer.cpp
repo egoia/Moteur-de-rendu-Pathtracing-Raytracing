@@ -3,6 +3,8 @@
 #include "../Vecteurs/Vector.h"
 #include "Image.h"
 
+Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255);
+
 struct Sphere{
     Vector3 centre;
     float rayon;
@@ -17,6 +19,7 @@ struct Ray{
 struct Camera{
     Vector3 position;
     std::vector<Vector3> pixels;
+    std::vector<float> depthMap;
     float distance_focale;
     float renderDistance;
     float width;
@@ -45,29 +48,48 @@ struct Camera{
     };
 
 
-    PPM raytrace(Sphere sphere){
+    PPM raytrace(std::vector<Sphere> spheres){
         make_plane();
         PPM image;
         image.maxValue = 255;
         image.height = height_in_pixel;
         image.width = width_in_pixel;
-        image.pixels = std::vector<Vector3>(image.width * image.height, Vector3(0, 0, 0));
+        image.pixels = std::vector<Vector3>(image.width * image.height, NO_COLLISION_COLOR);
+        depthMap = std::vector<float>(image.width * image.height, std::numeric_limits<float>::infinity());
+        float max = 0;
+        float min = std::numeric_limits<float>::infinity();
 
         for(int i = 0; i<height_in_pixel; i++){
-            for(int j =0; j<width_in_pixel; j++){
-                Ray ray = make_ray(j,i);
+            for(int j = 0; j<width_in_pixel; j++){
+                for(int k = 0; k<spheres.size(); k++){
+                    Ray ray = make_ray(j,i);
+                    float t;
+                    if(send_depth_ray(ray, spheres[k], t)){
+                        if(depthMap[i*width_in_pixel +j]>t){
+                            if(t<min)min = t;
+                            if(t>max)max = t;
+                            depthMap[i*width_in_pixel +j] = t;
+                            image.pixels[i*width_in_pixel +j] = spheres[k].color;
+                        }
+                    }
+                }
                 
-                float t;
-                if(send_depth_ray(ray, sphere, t)){
-                    image.pixels[i*width_in_pixel +j] = (renderDistance - t)/renderDistance*sphere.color;
-                }
-                else{
-                    image.pixels[i*width_in_pixel +j] = Vector3();
-                }
 
             }
         }
+        toneMap(min, max, image);
         return image;
+    };
+
+    void toneMap(float min, float max, PPM& image){
+        std::cout <<min << " " << max;
+         for(int i = 0; i<height_in_pixel; i++){
+            for(int j = 0; j<width_in_pixel; j++){
+                if(depthMap[i*width_in_pixel +j]==std::numeric_limits<float>::infinity())depthMap[i*width_in_pixel +j] = 1;
+                else depthMap[i*width_in_pixel +j] = 1-(depthMap[i*width_in_pixel +j] - min) /(max-min);
+                image.pixels[i*width_in_pixel +j] = image.pixels[i*width_in_pixel +j]*depthMap[i*width_in_pixel +j];
+            }
+        }
     };
 
     bool send_depth_ray(Ray ray, Sphere sphere, float& t){
@@ -99,6 +121,11 @@ int main(int argc, char *argv[]){
     sphere.centre = Vector3();
     sphere.rayon = 10;
     sphere.color = Vector3(0,0,255);
+
+    Sphere sphere2;
+    sphere2.centre = Vector3(5,0,-5);
+    sphere2.rayon = 5;
+    sphere2.color = Vector3(0,255,0);
     
     Camera cam;
     cam.position = Vector3(0, 0,-30);
@@ -106,10 +133,12 @@ int main(int argc, char *argv[]){
     cam.height_in_pixel = 720;
     cam.height = 10;
     cam.width = 16/9.f *10;
-    cam.renderDistance = 2000;
+    cam.renderDistance = 30;
     cam.distance_focale = 10;
 
-    PPM image = cam.raytrace(sphere);
+    std::vector<Sphere> spheres = {sphere, sphere2};
+
+    PPM image = cam.raytrace(spheres);
     std::cerr<<"end1";
     writePPM("scene.ppm", image);
     std::cerr<<"end";
