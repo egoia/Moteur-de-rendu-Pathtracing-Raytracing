@@ -75,4 +75,11 @@ float Vector3::Angle(const Vector3 a, const Vector3 b){
 
 Vector3 Vector3::copy(){
     return Vector3(this->x, this->y, this->z);
-}
+};
+
+Vector3 Vector3::Clamp(const Vector3 a, const Vector3 b){
+    float x = a.x > b.x ? b.x : a.x;
+    float y = a.y > b.y ? b.y : a.y;
+    float z = a.z > b.z ? b.z : a.z;
+    return Vector3(x,y,z);
+};
