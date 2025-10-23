@@ -34,6 +34,7 @@ struct Vector3{
         static Vector3 CrossProduct(const Vector3 a, const Vector3 b);
         static float Angle(const Vector3 a, const Vector3 b);
         static Vector3 Clamp(const Vector3 a, const Vector3 b);
+        static Vector3 Mulitplication(const Vector3 a, const Vector3 b);
 
 };
 

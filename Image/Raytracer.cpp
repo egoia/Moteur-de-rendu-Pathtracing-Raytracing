@@ -58,6 +58,10 @@ struct Camera{
         return ray;
     };
 
+    Ray* make_rays(int x,int y, int nb_rays){
+        
+    }
+
 
     PPM depth_raytrace(std::vector<Sphere> spheres){
         make_plane();
@@ -109,7 +113,7 @@ struct Camera{
                     Ray ray = make_ray(j,i);
                     float t;
                     Vector3 total_light;
-                    if(send_ray(ray, spheres[k], lights, t, total_light)){
+                    if(send_ray(ray, k, lights, spheres, t, total_light)){
                         if(depthMap[i*width_in_pixel +j]>t){
                             if(t<min)min = t;
                             if(t>max)max = t;
@@ -159,46 +163,42 @@ struct Camera{
 
     bool send_ray(Ray ray, int sphere_index, std::vector<PointLight> lights, std::vector<Sphere> spheres, float& t, Vector3& total_light){
         Sphere sphere = spheres[sphere_index];
-        Vector3 OC = sphere.centre - ray.origin;
-        float c = (Vector3::DotProduct(OC,OC)) - (sphere.rayon*sphere.rayon);
-        float b = -2*Vector3::DotProduct(OC, ray.direction);
-        float a = (Vector3::DotProduct(ray.direction,ray.direction));//dot(a,a) == norm2(a)
-        float delta = b*b - 4 * a * c;
-        total_light = Vector3();
-        if(delta>=0){
-            float t1 = (-b -sqrt(delta))/(2*a);
-            float t2 = (-b +sqrt(delta))/(2*a);
-            if(t1>0){
-                t = t1;
-                Vector3 contact_point = ray.origin + t*ray.direction;
+        if(send_depth_ray(ray, sphere, t)){
+            Vector3 contact_point = ray.origin + t*ray.direction;
 
 
-                Vector3 albedo = sphere.color;
-                Vector3 L_e = sphere.emited_light;
-                for(int i = 0; i<lights.size(); i++){
-                    
+            Vector3 albedo = sphere.color;
+            Vector3 L_e = sphere.emited_light;
+            for(int i = 0; i<lights.size(); i++){
+                
 
-                    PointLight light = lights[i];
+                PointLight light = lights[i];
 
-                    //ombre portées
-                    float t = (contact_point-light.position).magnitude();
-                    //Ray to light
-                    for(int i =0; i<spheres.size(); i++){
-                        if(i!=sphere_index){
-
+                //ombre portées
+                float t_light = (contact_point-light.position).magnitude();
+                float light_visibility = 1.f;
+                for(int i = 0; i<spheres.size(); i++){
+                    if(i!=sphere_index){
+                        Ray secondRay;
+                        secondRay.direction = contact_point-light.position;
+                        secondRay.direction.normalize();
+                        secondRay.origin = light.position;
+                        float t_temp;
+                        if(send_depth_ray(secondRay, spheres[i], t_temp)){
+                            if(t_temp<t_light) light_visibility = 0.f;
                         }
                     }
-                    float light_visibility = 1;// V(P, L_p)
-                    float L_emit = light.quantity;
-                    float D = 1;//(contact_point-light.position).magnitude();
-                    Vector3 N = (contact_point-sphere.centre).normalized();
-                    Vector3 L_i = (light.position - contact_point).normalized();
-
-                    Vector3 L_o = L_e + light_visibility * (L_emit / (D*D)) * albedo * std::max(Vector3::DotProduct(N,L_i), 0.f);
-                    total_light = total_light+L_o;
                 }
-                return true;
+                float L_emit = light.quantity;
+                float D = (contact_point-light.position).magnitude();
+                Vector3 N = (contact_point-sphere.centre).normalized();
+                Vector3 L_i = (light.position - contact_point).normalized();
+
+                Vector3 L_o = L_e + light_visibility * (L_emit / (D*D)) * albedo * std::max(Vector3::DotProduct(N,L_i), 0.f);
+                Vector3 colored_result = Vector3::Mulitplication(L_o, light.color/255);
+                total_light = total_light+colored_result;
             }
+            return true;
         }
 
         
@@ -210,10 +210,14 @@ struct Camera{
 
 
 
+
 int main(int argc, char *argv[]){
     constexpr int wallSphereRadius = 5000;
 
-    PointLight light_1 = PointLight(Vector3(), 1, Vector3(255,255,255));
+    PointLight light_1 = PointLight(Vector3(), 7000, Vector3(255,255,255));
+    PointLight light_2 = PointLight(Vector3(0, 0,-250), 30000, Vector3(150,0,200));
+    PointLight light_3 = PointLight(Vector3(-120, -120, 120), 10000, Vector3(10,190,10));
+
     Sphere wall_1 = Sphere(Vector3(0,0,125 + wallSphereRadius), wallSphereRadius, Vector3(180,180,180));
     Sphere wall_2 = Sphere(Vector3(wallSphereRadius + 125, 0, 0), wallSphereRadius, Vector3(180,180,180));
     Sphere wall_3 = Sphere(Vector3(-wallSphereRadius - 125,0,0), wallSphereRadius, Vector3(180,180,180));
@@ -223,7 +227,7 @@ int main(int argc, char *argv[]){
     
     Sphere sphere = Sphere(Vector3(0,50,100), 40, Vector3(0,0,255));
     Sphere sphere2 = Sphere(Vector3(50,0,50), 30, Vector3(0,255,0));
-    Sphere sphere3 = Sphere(Vector3(-50,0,0), 30, Vector3(255,0,0));
+    Sphere sphere3 = Sphere(Vector3(-100,0,12), 30, Vector3(255,0,0));
     
     Camera cam;
     cam.position = Vector3(0, 0,-250);
@@ -235,7 +239,7 @@ int main(int argc, char *argv[]){
     cam.distance_focale = 10;
 
     std::vector<Sphere> spheres = {sphere, sphere2, sphere3, wall_1, wall_2, wall_3, wall_4, wall_5};
-    std::vector<PointLight> lights = {light_1};
+    std::vector<PointLight> lights = { light_1, light_2, light_3};
     PPM image = cam.raytrace(spheres, lights);
     writePPM("scene.ppm", image);
     return 0;

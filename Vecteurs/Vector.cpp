@@ -83,3 +83,10 @@ Vector3 Vector3::Clamp(const Vector3 a, const Vector3 b){
     float z = a.z > b.z ? b.z : a.z;
     return Vector3(x,y,z);
 };
+
+Vector3 Vector3::Mulitplication(const Vector3 a, const Vector3 b){
+    float x = a.x * b.x ;
+    float y = a.y * b.y ;
+    float z = a.z * b.z ;
+    return Vector3(x,y,z);
+};
