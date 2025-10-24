@@ -4,7 +4,7 @@ TARGET = raytracer
 # Compilateur et flags
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
-
+CXXFLAGS_OPTI = -Wall -Wextra -std=c++17 -Fast
 # Répertoires
 SRC_DIR_IMAGE = Image
 SRC_DIR_VEC = Vecteurs
@@ -34,6 +34,9 @@ clean:
 
 run:
 	./raytracer
+
+opti: clean
+	$(MAKE) CXXFLAGS="$(CXXFLAGS_OPTI)" all
 
 # Nettoyage + fichiers générés (si tu veux aussi supprimer rouge.ppm par exemple)
 distclean: clean

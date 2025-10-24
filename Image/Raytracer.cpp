@@ -4,6 +4,7 @@
 #include "Image.h"
 
 Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255);
+int ANTIALIASING_SAMPLES = 16;
 
 struct Sphere{
     Vector3 centre;
@@ -59,7 +60,17 @@ struct Camera{
     };
 
     Ray* make_rays(int x,int y, int nb_rays){
-        
+        Ray* rays = new Ray[nb_rays];
+        float pixel_height = height / (float)height_in_pixel;
+        float pixel_width = width / (float)width_in_pixel;
+        for (int i = 0; i<nb_rays; i++){
+            float rx = -pixel_width + (pixel_width)*(std::rand() / (RAND_MAX+1.0));
+            float ry = -pixel_height + (pixel_height)*(std::rand() / (RAND_MAX+1.0));
+            rays[i].direction = pixels[y*width_in_pixel + x]+Vector3(rx,ry,0) - position;
+            rays[i].direction.normalize();
+            rays[i].origin = position;
+        }
+        return rays;
     }
 
 
@@ -104,24 +115,31 @@ struct Camera{
         image.width = width_in_pixel;
         image.pixels = std::vector<Vector3>(image.width * image.height, NO_COLLISION_COLOR);
         depthMap = std::vector<float>(image.width * image.height, std::numeric_limits<float>::infinity());
-        float max = 0;
-        float min = std::numeric_limits<float>::infinity();
+        //float max = 0;
+        //float min = std::numeric_limits<float>::infinity();
 
         for(int i = 0; i<height_in_pixel; i++){
             for(int j = 0; j<width_in_pixel; j++){
-                for(int k = 0; k<spheres.size(); k++){
-                    Ray ray = make_ray(j,i);
-                    float t;
-                    Vector3 total_light;
-                    if(send_ray(ray, k, lights, spheres, t, total_light)){
-                        if(depthMap[i*width_in_pixel +j]>t){
-                            if(t<min)min = t;
-                            if(t>max)max = t;
-                            depthMap[i*width_in_pixel +j] = t;
-                            image.pixels[i*width_in_pixel +j] = Vector3::Clamp(total_light, Vector3(255,255,255));
+                Ray* rays = make_rays(j,i, ANTIALIASING_SAMPLES);
+                Vector3 sum_color = Vector3();
+                for(int l = 0; l<ANTIALIASING_SAMPLES; l++){
+                    float t_min = std::numeric_limits<float>::infinity();
+                    Vector3 color_min = Vector3();
+                    for(int k = 0; k<spheres.size(); k++){
+                        float t;
+                        Vector3 total_light;
+                        if(send_ray(rays[l], k, lights, spheres, t, total_light)){
+                            if(t_min>t){
+                                //if(t<min)min = t;
+                                //if(t>max)max = t;
+                                t_min = t;
+                                color_min = Vector3::Clamp(total_light, Vector3(255,255,255));
+                            }
                         }
                     }
+                    sum_color = sum_color +color_min;
                 }
+                image.pixels[i*width_in_pixel +j] = sum_color/(float)ANTIALIASING_SAMPLES;
                 
 
             }
@@ -190,7 +208,7 @@ struct Camera{
                     }
                 }
                 float L_emit = light.quantity;
-                float D = (contact_point-light.position).magnitude();
+                float D = 1;//(contact_point-light.position).magnitude();
                 Vector3 N = (contact_point-sphere.centre).normalized();
                 Vector3 L_i = (light.position - contact_point).normalized();
 
