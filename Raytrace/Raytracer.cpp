@@ -5,9 +5,10 @@
 #include "../Utility/Utils.cpp"
 
 
-Vector3 NO_COLLISION_COLOR = Vector3(236/255, 50/255, 1);
+Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255)/255;
 int ANTIALIASING_SAMPLES = 16;
-float ATENUATION_FACTOR = 0.4;
+float ATTENUATION_FACTOR = 0.5;
+int DIFFUSE_ITERATIONS = 1;
 
 
 
@@ -52,17 +53,17 @@ struct Ray{
         return false;
     };
 
-     bool send_ray(int sphere_index, std::vector<PointLight> lights, std::vector<Sphere> spheres, float& t, Vector3& total_light){
+     bool send_ray(int sphere_index, std::vector<PointLight> lights, std::vector<Sphere> spheres, float& t, Vector3& total_light, Vector3& contact_point, Vector3& normal){
         Sphere sphere = spheres[sphere_index];
         if(send_depth_ray( sphere, t)){
-            Vector3 contact_point = origin + t*direction;
+            contact_point = origin + t*direction;
 
 
             Vector3 albedo = sphere.color;
             Vector3 L_e = sphere.emited_light;
             Vector3 N = (contact_point-sphere.centre).normalized();
+            normal = N;
             for(int i = 0; i<lights.size(); i++){
-                
 
                 PointLight light = lights[i];
 
@@ -89,21 +90,12 @@ struct Ray{
                 Vector3 colored_result = Vector3::Mulitplication(L_o, light.color);
                 total_light = total_light+colored_result;
             }
-            //diffuse
-            Ray diffused;
-            diffused.direction = Vector3::RandomUnitOnHemisphere(N);
-            diffused.direction.normalize();
-            diffused.origin = contact_point;
-
             //if(send_ray(diffused, ))
-
             return true;
         }
         return false;
     }
 };
-
-
 
 
 struct World{
@@ -112,20 +104,37 @@ struct World{
 
     World(std::vector<Sphere> objects, std::vector<PointLight> lights) : lights(lights), objects(objects){}
 
-    Vector3 color(Ray ray){
+    Vector3 color(Ray ray, int iterations){
         float t_min = std::numeric_limits<float>::infinity();
-        Vector3 color_min = Vector3();
+        Vector3 color_min = NO_COLLISION_COLOR;
+        Vector3 closest_contact_point;
+        Vector3 closest_normal;
+        bool contact = false;
         for(int k = 0; k<objects.size(); k++){
             float t;
             Vector3 total_light;
-            if(ray.send_ray( k, lights, objects, t, total_light)){
+            Vector3 contact_point;
+            Vector3 normal;
+            if(ray.send_ray( k, lights, objects, t, total_light, contact_point, normal)){
                 if(t_min>t){
                     //if(t<min)min = t;
                     //if(t>max)max = t;
                     t_min = t;
-                    color_min = Vector3::Clamp(total_light, Vector3(1,1,1));
+                    color_min = Vector3::Clamp(total_light, Vector3(255,255,255)/255);
+                    closest_contact_point = contact_point;
+                    closest_normal = normal;
                 }
+                contact = true;
             }
+        }
+        if(contact && iterations>0){
+            iterations--;
+            //diffuse
+            Ray diffused;
+            diffused.direction = Vector3::RandomUnitOnHemisphere(closest_normal);
+            diffused.direction.normalize();
+            diffused.origin = closest_contact_point+closest_normal*0.001;
+            return color_min+ATTENUATION_FACTOR*color(diffused, iterations);
         }
         return color_min;
     }
@@ -143,7 +152,7 @@ struct Camera{
     int width_in_pixel;
     int height_in_pixel;
 
-    void make_plane(){//init la position de chaque pixel
+    void make_plane(){
         pixels = std::vector<Vector3>(width_in_pixel * height_in_pixel, Vector3(0, 0, 0));
         float pixel_height = height / (float)height_in_pixel;
         float pixel_width = width / (float)width_in_pixel;
@@ -214,7 +223,7 @@ struct Camera{
     PPM raytrace(World world){
         make_plane();
         PPM image;
-        image.maxValue = 1;
+        image.maxValue = 255;
         image.height = height_in_pixel;
         image.width = width_in_pixel;
         image.pixels = std::vector<Vector3>(image.width * image.height, NO_COLLISION_COLOR);
@@ -222,12 +231,14 @@ struct Camera{
         //float max = 0;
         //float min = std::numeric_limits<float>::infinity();
 
+        #pragma omp parallel for schedule(dynamic) default(shared) firstprivate(width_in_pixel, height_in_pixel)
         for(int i = 0; i<height_in_pixel; i++){
+            #pragma omp parallel for schedule(dynamic) default(shared) firstprivate(width_in_pixel, height_in_pixel)
             for(int j = 0; j<width_in_pixel; j++){
                 Ray* rays = make_rays(j,i, ANTIALIASING_SAMPLES);
                 Vector3 sum_color = Vector3();
                 for(int l = 0; l<ANTIALIASING_SAMPLES; l++){
-                    Vector3 color_min = world.color(rays[l]);
+                    Vector3 color_min = world.color(rays[l], DIFFUSE_ITERATIONS);
                     sum_color = sum_color +color_min;
                 }
                 image.pixels[i*width_in_pixel +j] = sum_color/(float)ANTIALIASING_SAMPLES;
@@ -237,7 +248,13 @@ struct Camera{
         return image;
     };
 
-
+    void toPPM_format(PPM& image){
+        for(int i = 0; i<height_in_pixel; i++){
+            for(int j = 0; j<width_in_pixel; j++){
+                image.pixels[i*width_in_pixel +j] = image.pixels[i*width_in_pixel +j]*255;
+            }
+        }
+    }
 
     void depth_toneMap(float min, float max, PPM& image){
         std::cout <<min << " " << max;
@@ -260,9 +277,9 @@ struct Camera{
 int main(int argc, char *argv[]){
     constexpr int wallSphereRadius = 5000;
 
-    PointLight light_1 = PointLight(Vector3(), 0.1, Vector3(1,1,1));
-    PointLight light_2 = PointLight(Vector3(0, 0,-250), 0.02, Vector3(150/255,0,200/255));
-    PointLight light_3 = PointLight(Vector3(-120, -120, 120), 0.05, Vector3(10/255,190/255,10/255));
+    PointLight light_1 = PointLight(Vector3(), 0.2, Vector3(255,255,255)/255);
+    PointLight light_2 = PointLight(Vector3(0, 0,-250), 0.3, Vector3(150,0,200)/255);
+    PointLight light_3 = PointLight(Vector3(-120, -120, 120), 0.5, Vector3(10,190,10)/255);
 
     Sphere wall_1 = Sphere(Vector3(0,0,125 + wallSphereRadius), wallSphereRadius, Vector3(180,250,180)/255);//fond
     Sphere wall_2 = Sphere(Vector3(wallSphereRadius + 125, 0, 0), wallSphereRadius, Vector3(180,180,0)/255);
@@ -271,9 +288,9 @@ int main(int argc, char *argv[]){
     Sphere wall_5 = Sphere(Vector3(0,-wallSphereRadius - 125,0), wallSphereRadius, Vector3(45,200,123)/255);
 
     
-    Sphere sphere = Sphere(Vector3(0,50,100), 40, Vector3(0,0,1));
-    Sphere sphere2 = Sphere(Vector3(50,0,50), 30, Vector3(0,1,0));
-    Sphere sphere3 = Sphere(Vector3(-100,0,12), 30, Vector3(1,0,0));
+    Sphere sphere = Sphere(Vector3(0,50,100), 40, Vector3(0,0,255)/255);
+    Sphere sphere2 = Sphere(Vector3(50,0,50), 30, Vector3(0,255,0)/255);
+    Sphere sphere3 = Sphere(Vector3(-100,0,12), 30, Vector3(255,0,0)/255);
     
     Camera cam;
     cam.position = Vector3(0, 0,-250);
@@ -288,6 +305,7 @@ int main(int argc, char *argv[]){
     std::vector<PointLight> lights = { light_1, light_2, light_3};
     World world = World(spheres, lights);
     PPM image = cam.raytrace(world);
+    cam.toPPM_format(image);
     writePPM("scene.ppm", image);
     return 0;
 };
