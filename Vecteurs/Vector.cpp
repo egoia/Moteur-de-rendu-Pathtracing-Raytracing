@@ -90,3 +90,32 @@ Vector3 Vector3::Mulitplication(const Vector3 a, const Vector3 b){
     float z = a.z * b.z ;
     return Vector3(x,y,z);
 };
+
+Vector3 Vector3::Random(){
+    return Vector3(Utils::RandomFloat(), Utils::RandomFloat(), Utils::RandomFloat());
+}
+
+Vector3 Vector3::Random(float min, float max){
+    return Vector3(min + Utils::RandomFloat()*(max-min), min + Utils::RandomFloat()*(max-min), min + Utils::RandomFloat()*(max-min));
+}
+
+Vector3 Vector3::RandomUnit(){
+    while(true){
+        Vector3 p = Random(-1,1);
+        if(p.norm2()<=1){
+            return p;
+        }
+    }
+}
+
+Vector3 Vector3::RandomUnitOnHemisphere(const Vector3 normal){
+    Vector3 vec = RandomUnit();
+    if(DotProduct(vec, normal)>0)
+        return vec;
+    else
+        return -vec;
+}
+
+float Vector3::norm2() const {
+    return this->x*this->x + this->y*this->y + this->z*this->z;
+}

@@ -8,9 +8,10 @@ CXXFLAGS_OPTI = -Wall -Wextra -std=c++17 -Fast
 # Répertoires
 SRC_DIR_IMAGE = Image
 SRC_DIR_VEC = Vecteurs
+SRC_DIR_MAIN = Raytrace
 
 # Fichiers source
-SRCS = $(SRC_DIR_IMAGE)/Raytracer.cpp \
+SRCS = $(SRC_DIR_MAIN)/Raytracer.cpp \
        $(SRC_DIR_IMAGE)/Image.cpp \
        $(SRC_DIR_VEC)/Vector.cpp
 

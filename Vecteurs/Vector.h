@@ -1,6 +1,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include "../Utility/Utils.cpp"
 
 #pragma once
 
@@ -25,6 +26,7 @@ struct Vector3{
         bool operator==(const Vector3 a) const;
 
         Vector3 normalize();// ne pas trop utiliser
+        float norm2() const;
         Vector3 normalized() const;
         float magnitude() const;
 
@@ -35,6 +37,10 @@ struct Vector3{
         static float Angle(const Vector3 a, const Vector3 b);
         static Vector3 Clamp(const Vector3 a, const Vector3 b);
         static Vector3 Mulitplication(const Vector3 a, const Vector3 b);
+        static Vector3 Random();
+        static Vector3 Random(float min, float max);
+        static Vector3 RandomUnit();
+        static Vector3 RandomUnitOnHemisphere(const Vector3 normal);
 
 };
 
