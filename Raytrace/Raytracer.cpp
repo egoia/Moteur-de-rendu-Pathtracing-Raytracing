@@ -6,9 +6,9 @@
 
 
 Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255)/255;
-int ANTIALIASING_SAMPLES = 16;
+int ANTIALIASING_SAMPLES = 50;
 float ATTENUATION_FACTOR = 0.5;
-int DIFFUSE_ITERATIONS = 1;
+int DIFFUSE_ITERATIONS = 0;
 
 
 
@@ -53,48 +53,7 @@ struct Ray{
         return false;
     };
 
-     bool send_ray(int sphere_index, std::vector<PointLight> lights, std::vector<Sphere> spheres, float& t, Vector3& total_light, Vector3& contact_point, Vector3& normal){
-        Sphere sphere = spheres[sphere_index];
-        if(send_depth_ray( sphere, t)){
-            contact_point = origin + t*direction;
-
-
-            Vector3 albedo = sphere.color;
-            Vector3 L_e = sphere.emited_light;
-            Vector3 N = (contact_point-sphere.centre).normalized();
-            normal = N;
-            for(int i = 0; i<lights.size(); i++){
-
-                PointLight light = lights[i];
-
-                //ombre portées
-                float t_light = (contact_point-light.position).magnitude();
-                float light_visibility = 1.f;
-                for(int i = 0; i<spheres.size(); i++){
-                    if(i!=sphere_index){
-                        Ray secondRay;
-                        secondRay.direction = contact_point-light.position;
-                        secondRay.direction.normalize();
-                        secondRay.origin = light.position;
-                        float t_temp;
-                        if(secondRay.send_depth_ray(spheres[i], t_temp)){
-                            if(t_temp<t_light) light_visibility = 0.f;
-                        }
-                    }
-                }
-                float L_emit = light.quantity;
-                float D = 1;//(contact_point-light.position).magnitude();
-                Vector3 L_i = (light.position - contact_point).normalized();
-
-                Vector3 L_o = L_e + light_visibility * (L_emit / (D*D)) * albedo * std::max(Vector3::DotProduct(N,L_i), 0.f);
-                Vector3 colored_result = Vector3::Mulitplication(L_o, light.color);
-                total_light = total_light+colored_result;
-            }
-            //if(send_ray(diffused, ))
-            return true;
-        }
-        return false;
-    }
+    
 };
 
 
@@ -104,39 +63,91 @@ struct World{
 
     World(std::vector<Sphere> objects, std::vector<PointLight> lights) : lights(lights), objects(objects){}
 
+    Vector3 send_ray(int sphere_index, Vector3 contact_point, Vector3 normale){
+        Sphere sphere = objects[sphere_index];
+        Vector3 total_light = Vector3();
+
+        Vector3 albedo = sphere.color;
+        Vector3 L_e = sphere.emited_light;
+        for(int i = 0; i<lights.size(); i++){
+
+            PointLight light = lights[i];
+
+            //ombre portées
+            float t_light = (contact_point-light.position).magnitude();
+            float light_visibility = 1.f;
+            
+            Ray secondRay;
+            secondRay.direction = contact_point-light.position;
+            secondRay.direction.normalize();
+            secondRay.origin = light.position;
+            float t_temp;
+            int hit_index;
+            if(hit(secondRay, t_temp, hit_index, sphere_index)){
+                if(t_temp<t_light) light_visibility = 0.f;
+            }
+            float L_emit = light.quantity;
+            float D = 1;//(contact_point-light.position).magnitude();
+            Vector3 L_i = (light.position - contact_point).normalized();
+
+            Vector3 L_o = L_e + light_visibility * (L_emit / (D*D)) * albedo * std::max(Vector3::DotProduct(normale,L_i), 0.f);
+            
+            //std::cout << "normale : " <<normale <<" ,L-i : " <<L_i<< "\n";
+            //std::cout << "light_visibility : " <<L_o <<"\n";
+
+            //std::cout << Vector3::DotProduct(normale,L_i) << "\n";
+            Vector3 colored_result = Vector3::Mulitplication(L_o, light.color);
+            
+            total_light = total_light+colored_result;
+        }
+        return total_light;
+    }
+
     Vector3 color(Ray ray, int iterations){
-        float t_min = std::numeric_limits<float>::infinity();
-        Vector3 color_min = NO_COLLISION_COLOR;
-        Vector3 closest_contact_point;
-        Vector3 closest_normal;
-        bool contact = false;
-        for(int k = 0; k<objects.size(); k++){
-            float t;
-            Vector3 total_light;
-            Vector3 contact_point;
-            Vector3 normal;
-            if(ray.send_ray( k, lights, objects, t, total_light, contact_point, normal)){
-                if(t_min>t){
-                    //if(t<min)min = t;
-                    //if(t>max)max = t;
-                    t_min = t;
-                    color_min = Vector3::Clamp(total_light, Vector3(255,255,255)/255);
-                    closest_contact_point = contact_point;
-                    closest_normal = normal;
-                }
-                contact = true;
+        Vector3 contact_point;
+        Vector3 hit_normal;
+
+        float t;
+        int sphere_index;
+        Vector3 total_light = NO_COLLISION_COLOR;
+        if(hit(ray, t, sphere_index, -1)){
+            //std::cout << t << "\n";
+            //std::cout << sphere_index << "\n";
+            contact_point = ray.origin + t *ray.direction;
+            Vector3 normale = (contact_point-objects[sphere_index].centre).normalized();
+            total_light = send_ray(sphere_index,  contact_point, normale);
+            total_light = Vector3::Clamp(total_light, Vector3(1,1,1));
+            if(iterations>0){
+                iterations--;
+                Ray diffused;
+                diffused.direction = Vector3::RandomUnitOnHemisphere(normale);
+                diffused.direction.normalize();
+                diffused.origin = contact_point+normale*0.001;
+                return total_light+ATTENUATION_FACTOR*color(diffused, iterations);
             }
         }
-        if(contact && iterations>0){
-            iterations--;
-            //diffuse
-            Ray diffused;
-            diffused.direction = Vector3::RandomUnitOnHemisphere(closest_normal);
-            diffused.direction.normalize();
-            diffused.origin = closest_contact_point+closest_normal*0.001;
-            return color_min+ATTENUATION_FACTOR*color(diffused, iterations);
+        return total_light;
+    }
+
+    bool hit(Ray ray, float &t, int& sphere_index, int masked_sphere){
+        float t_min = std::numeric_limits<float>::infinity();
+        bool res = false;
+
+        for( int i = 0; i<objects.size(); i++){
+            if (i !=masked_sphere){
+                float temp;
+                if(ray.send_depth_ray(objects[i], temp) ){
+                    if(t_min >temp){
+                        sphere_index = i;
+                        t_min = temp;
+                    }
+                    res = true;
+                }
+            }
+            
         }
-        return color_min;
+        t = t_min;
+        return res;
     }
     
 };
@@ -231,9 +242,8 @@ struct Camera{
         //float max = 0;
         //float min = std::numeric_limits<float>::infinity();
 
-        #pragma omp parallel for schedule(dynamic) default(shared) firstprivate(width_in_pixel, height_in_pixel)
+        #pragma omp parallel for
         for(int i = 0; i<height_in_pixel; i++){
-            #pragma omp parallel for schedule(dynamic) default(shared) firstprivate(width_in_pixel, height_in_pixel)
             for(int j = 0; j<width_in_pixel; j++){
                 Ray* rays = make_rays(j,i, ANTIALIASING_SAMPLES);
                 Vector3 sum_color = Vector3();

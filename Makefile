@@ -4,7 +4,7 @@ TARGET = raytracer
 # Compilateur et flags
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17
-CXXFLAGS_OPTI = -Wall -Wextra -std=c++17 -Fast
+CXXFLAGS_OPTI = -Wall -Ofast -march=native -flto -fopenmp
 # Répertoires
 SRC_DIR_IMAGE = Image
 SRC_DIR_VEC = Vecteurs
