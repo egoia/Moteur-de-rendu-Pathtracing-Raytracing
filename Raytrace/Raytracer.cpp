@@ -7,7 +7,7 @@
 
 Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255)/255;
 int ANTIALIASING_SAMPLES = 50;
-float ATTENUATION_FACTOR = 0.5;
+float ATTENUATION_FACTOR = 1;
 int DIFFUSE_ITERATIONS = 0;
 
 
@@ -52,6 +52,41 @@ struct Ray{
         }
         return false;
     };
+
+    bool ray_intersects_triangle(Vector3 A, Vector3 B, Vector3 C){
+        constexpr float epsilon = std::numeric_limits<float>::epsilon();
+
+        Vector3 edge1 = B - A;
+        Vector3 edge2 = C - A;
+        Vector3 ray_cross_e2 = Vector3::CrossProduct(direction, edge2);
+        float det = Vector3::DotProduct(edge1, ray_cross_e2);
+
+        if (det > -epsilon && det < epsilon)
+            return {};    // This ray is parallel to this triangle.
+
+        float inv_det = 1.0 / det;
+        Vector3 s = origin - A;
+        float u = inv_det * Vector3::DotProduct(s, ray_cross_e2);
+
+        if ((u < 0 && abs(u) > epsilon) || (u > 1 && abs(u-1) > epsilon))
+            return {};
+
+        Vector3 s_cross_e1 = Vector3::CrossProduct(s, edge1);
+        float v = inv_det * Vector3::DotProduct(direction, s_cross_e1);
+
+        if ((v < 0 && abs(v) > epsilon) || (u + v > 1 && abs(u + v - 1) > epsilon))
+            return {};
+
+        // At this stage we can compute t to find out where the intersection point is on the line.
+        float t = inv_det * Vector3::DotProduct(edge2, s_cross_e1);
+
+        if (t > epsilon) // ray intersection
+        {
+            return true; //origin + direction * t;
+        }
+        else // This means that there is a line intersection but not a ray intersection.
+            return {};
+    }
 
     
 };
