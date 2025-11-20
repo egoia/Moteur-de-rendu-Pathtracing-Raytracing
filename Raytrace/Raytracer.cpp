@@ -3,6 +3,7 @@
 #include "../Vecteurs/Vector.h"
 #include "../Image/Image.h"
 #include "../Utility/Utils.cpp"
+#include "Object.h"
 
 
 Vector3 NO_COLLISION_COLOR = Vector3(236, 50, 255)/255;
@@ -12,98 +13,21 @@ int DIFFUSE_ITERATIONS = 0;
 
 
 
-struct Sphere{
-    Vector3 centre;
-    float rayon;
-    Vector3 color;
-    Vector3 emited_light;
 
-    Sphere(Vector3 c, float r, Vector3 color) : centre(c), rayon(r), color(color){}
-};
-
-struct PointLight{
-    Vector3 position;
-    Vector3 color;
-    float quantity;
-
-    PointLight(Vector3 p, float q, Vector3 color) : position(p), quantity(q), color(color){}
-};
-
-struct Ray{
-    Vector3 direction;
-    Vector3 origin;
-
-    bool send_depth_ray( Sphere sphere, float& t){
-        Vector3 OC = sphere.centre - origin;
-        float c = (Vector3::DotProduct(OC,OC)) - (sphere.rayon*sphere.rayon);
-        float b = -2*Vector3::DotProduct(OC, direction);
-        float a = direction.norm2();//dot(a,a) == norm2(a)
-        float delta = b*b - 4 * a * c;
-        if(delta>=0){
-            float t1 = (-b -sqrt(delta))/(2*a);
-            float t2 = (-b +sqrt(delta))/(2*a);
-            if(t1>0){
-                t = t1;
-                return true;
-            }
-            else{
-                return false;
-            }
-        }
-        return false;
-    };
-
-    bool ray_intersects_triangle(Vector3 A, Vector3 B, Vector3 C){
-        constexpr float epsilon = std::numeric_limits<float>::epsilon();
-
-        Vector3 edge1 = B - A;
-        Vector3 edge2 = C - A;
-        Vector3 ray_cross_e2 = Vector3::CrossProduct(direction, edge2);
-        float det = Vector3::DotProduct(edge1, ray_cross_e2);
-
-        if (det > -epsilon && det < epsilon)
-            return {};    // This ray is parallel to this triangle.
-
-        float inv_det = 1.0 / det;
-        Vector3 s = origin - A;
-        float u = inv_det * Vector3::DotProduct(s, ray_cross_e2);
-
-        if ((u < 0 && abs(u) > epsilon) || (u > 1 && abs(u-1) > epsilon))
-            return {};
-
-        Vector3 s_cross_e1 = Vector3::CrossProduct(s, edge1);
-        float v = inv_det * Vector3::DotProduct(direction, s_cross_e1);
-
-        if ((v < 0 && abs(v) > epsilon) || (u + v > 1 && abs(u + v - 1) > epsilon))
-            return {};
-
-        // At this stage we can compute t to find out where the intersection point is on the line.
-        float t = inv_det * Vector3::DotProduct(edge2, s_cross_e1);
-
-        if (t > epsilon) // ray intersection
-        {
-            return true; //origin + direction * t;
-        }
-        else // This means that there is a line intersection but not a ray intersection.
-            return {};
-    }
-
-    
-};
 
 
 struct World{
-    std::vector<Sphere> objects;
+    std::vector<Visual3D> objects;
     std::vector<PointLight> lights;
 
-    World(std::vector<Sphere> objects, std::vector<PointLight> lights) : lights(lights), objects(objects){}
+    World(std::vector<Visual3D> objects, std::vector<PointLight> lights) : lights(lights), objects(objects){}
 
-    Vector3 send_ray(int sphere_index, Vector3 contact_point, Vector3 normale){
-        Sphere sphere = objects[sphere_index];
+    Vector3 send_ray(int object_index, Vector3 contact_point, Vector3 normale){
+        Visual3D object = objects[object_index];
         Vector3 total_light = Vector3();
 
-        Vector3 albedo = sphere.color;
-        Vector3 L_e = sphere.emited_light;
+        Vector3 albedo = object.material.color;
+        Vector3 L_e = object.material.emited_light;
         for(int i = 0; i<lights.size(); i++){
 
             PointLight light = lights[i];
@@ -118,7 +42,7 @@ struct World{
             secondRay.origin = light.position;
             float t_temp;
             int hit_index;
-            if(hit(secondRay, t_temp, hit_index, sphere_index)){
+            if(hit(secondRay, t_temp, hit_index, object_index)){
                 if(t_temp<t_light) light_visibility = 0.f;
             }
             float L_emit = light.quantity;
@@ -171,7 +95,7 @@ struct World{
         for( int i = 0; i<objects.size(); i++){
             if (i !=masked_sphere){
                 float temp;
-                if(ray.send_depth_ray(objects[i], temp) ){
+                if(ray.intersects_sphere(objects[i], temp) ){
                     if(t_min >temp){
                         sphere_index = i;
                         t_min = temp;
