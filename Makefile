@@ -13,7 +13,8 @@ SRC_DIR_MAIN = Raytrace
 # Fichiers source
 SRCS = $(SRC_DIR_MAIN)/Raytracer.cpp \
        $(SRC_DIR_IMAGE)/Image.cpp \
-       $(SRC_DIR_VEC)/Vector.cpp
+       $(SRC_DIR_VEC)/Vector.cpp \
+	   $(SRC_DIR_MAIN)/Object.cpp
 
 # Fichiers objets (remplace .cpp par .o)
 OBJS = $(SRCS:.cpp=.o)

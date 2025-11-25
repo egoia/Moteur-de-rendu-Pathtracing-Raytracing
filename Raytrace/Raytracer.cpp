@@ -17,18 +17,18 @@ int DIFFUSE_ITERATIONS = 0;
 
 
 struct World{
-    std::vector<Visual3D> objects;
+    std::vector<Visual3D*> objects;
     std::vector<PointLight> lights;
 
-    World(std::vector<Visual3D> objects, std::vector<PointLight> lights) : lights(lights), objects(objects){}
+    World(std::vector<Visual3D*> objects, std::vector<PointLight> lights) : objects(objects), lights(lights){}
 
     Vector3 send_ray(int object_index, Vector3 contact_point, Vector3 normale){
-        Visual3D object = objects[object_index];
+        Visual3D* object = objects[object_index];
         Vector3 total_light = Vector3();
 
-        Vector3 albedo = object.material.color;
-        Vector3 L_e = object.material.emited_light;
-        for(int i = 0; i<lights.size(); i++){
+        Vector3 albedo = object->material.color;
+        Vector3 L_e = object->material.emited_light;
+        for(size_t i = 0; i<lights.size(); i++){
 
             PointLight light = lights[i];
 
@@ -40,10 +40,11 @@ struct World{
             secondRay.direction = contact_point-light.position;
             secondRay.direction.normalize();
             secondRay.origin = light.position;
-            float t_temp;
+
+            HitRay ray_hit;
             int hit_index;
-            if(hit(secondRay, t_temp, hit_index, object_index)){
-                if(t_temp<t_light) light_visibility = 0.f;
+            if(hit(secondRay, ray_hit, hit_index, object_index)){
+                if(ray_hit.t<t_light) light_visibility = 0.f;
             }
             float L_emit = light.quantity;
             float D = 1;//(contact_point-light.position).magnitude();
@@ -66,14 +67,14 @@ struct World{
         Vector3 contact_point;
         Vector3 hit_normal;
 
-        float t;
+        HitRay ray_hit;
         int sphere_index;
         Vector3 total_light = NO_COLLISION_COLOR;
-        if(hit(ray, t, sphere_index, -1)){
+        if(hit(ray, ray_hit, sphere_index, -1)){
             //std::cout << t << "\n";
             //std::cout << sphere_index << "\n";
-            contact_point = ray.origin + t *ray.direction;
-            Vector3 normale = (contact_point-objects[sphere_index].centre).normalized();
+            contact_point = ray_hit.contact_point;
+            Vector3 normale = ray_hit.normal;
             total_light = send_ray(sphere_index,  contact_point, normale);
             total_light = Vector3::Clamp(total_light, Vector3(1,1,1));
             if(iterations>0){
@@ -88,24 +89,25 @@ struct World{
         return total_light;
     }
 
-    bool hit(Ray ray, float &t, int& sphere_index, int masked_sphere){
-        float t_min = std::numeric_limits<float>::infinity();
+    bool hit(Ray ray, HitRay& hit, int& object_index, int masked_sphere){
         bool res = false;
+        HitRay min;
+        min.t = std::numeric_limits<float>::infinity();
 
-        for( int i = 0; i<objects.size(); i++){
-            if (i !=masked_sphere){
-                float temp;
-                if(ray.intersects_sphere(objects[i], temp) ){
-                    if(t_min >temp){
-                        sphere_index = i;
-                        t_min = temp;
+        for(size_t i = 0; i<objects.size(); i++){
+            if ((int)i !=masked_sphere){
+                HitRay temp;
+                if(objects[i]->intersect(ray, temp) ){
+                    if(min.t >temp.t){
+                        object_index = i;
+                        min = temp;
                     }
                     res = true;
                 }
+                
             }
-            
         }
-        t = t_min;
+        hit = min;
         return res;
     }
     
@@ -250,16 +252,16 @@ int main(int argc, char *argv[]){
     PointLight light_2 = PointLight(Vector3(0, 0,-250), 0.3, Vector3(150,0,200)/255);
     PointLight light_3 = PointLight(Vector3(-120, -120, 120), 0.5, Vector3(10,190,10)/255);
 
-    Sphere wall_1 = Sphere(Vector3(0,0,125 + wallSphereRadius), wallSphereRadius, Vector3(180,250,180)/255);//fond
-    Sphere wall_2 = Sphere(Vector3(wallSphereRadius + 125, 0, 0), wallSphereRadius, Vector3(180,180,0)/255);
-    Sphere wall_3 = Sphere(Vector3(-wallSphereRadius - 125,0,0), wallSphereRadius, Vector3(147,23,180)/255);
-    Sphere wall_4 = Sphere(Vector3(0,wallSphereRadius + 125,0), wallSphereRadius, Vector3(0,180,180)/255);
-    Sphere wall_5 = Sphere(Vector3(0,-wallSphereRadius - 125,0), wallSphereRadius, Vector3(45,200,123)/255);
+    Sphere* wall_1 = new Sphere(Vector3(0,0,125 + wallSphereRadius), wallSphereRadius, Vector3(180,250,180)/255);//fond
+    Sphere* wall_2 = new Sphere(Vector3(wallSphereRadius + 125, 0, 0), wallSphereRadius, Vector3(180,180,0)/255);
+    Sphere* wall_3 = new Sphere(Vector3(-wallSphereRadius - 125,0,0), wallSphereRadius, Vector3(147,23,180)/255);
+    Sphere* wall_4 = new Sphere(Vector3(0,wallSphereRadius + 125,0), wallSphereRadius, Vector3(0,180,180)/255);
+    Sphere* wall_5 = new Sphere(Vector3(0,-wallSphereRadius - 125,0), wallSphereRadius, Vector3(45,200,123)/255);
 
     
-    Sphere sphere = Sphere(Vector3(0,50,100), 40, Vector3(0,0,255)/255);
-    Sphere sphere2 = Sphere(Vector3(50,0,50), 30, Vector3(0,255,0)/255);
-    Sphere sphere3 = Sphere(Vector3(-100,0,12), 30, Vector3(255,0,0)/255);
+    Sphere* sphere = new Sphere(Vector3(0,50,100), 40, Vector3(0,0,255)/255);
+    Sphere* sphere2 = new Sphere(Vector3(50,0,50), 30, Vector3(0,255,0)/255);
+    Sphere* sphere3 = new Sphere(Vector3(-100,0,12), 30, Vector3(255,0,0)/255);
     
     Camera cam;
     cam.position = Vector3(0, 0,-250);
@@ -270,9 +272,10 @@ int main(int argc, char *argv[]){
     cam.renderDistance = 30;
     cam.distance_focale = 10;
 
-    std::vector<Sphere> spheres = {sphere, sphere2, sphere3, wall_1, wall_2, wall_3, wall_4, wall_5};
+    std::vector<Visual3D*> spheres = {sphere, sphere2, sphere3, wall_1, wall_2, wall_3, wall_4, wall_5};
     std::vector<PointLight> lights = { light_1, light_2, light_3};
     World world = World(spheres, lights);
+    std::cerr <<"la\n";
     PPM image = cam.raytrace(world);
     cam.toPPM_format(image);
     writePPM("scene.ppm", image);

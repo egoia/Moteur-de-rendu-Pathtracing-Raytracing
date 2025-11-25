@@ -12,12 +12,12 @@ bool Sphere::intersect(Ray ray, HitRay& hit){
     float delta = b*b - 4 * a * c;
     if(delta>=0){
         float t1 = (-b -sqrt(delta))/(2*a);
-        float t2 = (-b +sqrt(delta))/(2*a);
+        //float t2 = (-b +sqrt(delta))/(2*a);
         if(t1>0){
             hit.t = t1;
             hit.mat = material;
             hit.contact_point = hit.t*ray.direction + ray.origin;
-            hit.normal = (center - hit.contact_point).normalized();
+            hit.normal = (hit.contact_point - center).normalized();
             return true;
         }
         else{
@@ -76,5 +76,4 @@ bool Mesh::intersect(Ray ray, HitRay& hit) {
         }
     }
     return false;
-    
 };

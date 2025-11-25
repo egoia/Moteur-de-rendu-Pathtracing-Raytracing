@@ -6,7 +6,7 @@ struct Material{
     Vector3 emited_light;
     Vector3 color;
 
-    Material(Vector3 color) : color(color), emited_light(Vector3()){};
+    Material(Vector3 color) :  emited_light(Vector3()), color(color){};
     Material(Vector3 color, Vector3 emited_light) : emited_light(emited_light), color(color){};
 };
 
@@ -30,12 +30,13 @@ struct Ray{
 struct Visual3D{
     Material material;
     public:
-        virtual bool intersect(Ray ray, HitRay& hit);
+        virtual bool intersect(Ray ray, HitRay& hit) = 0;
+        virtual ~Visual3D() = default;
 
     Visual3D(Material mat) : material(mat){}
 };
 
-struct Mesh : Visual3D{
+struct Mesh : public Visual3D{
     public :
         Vector3 center;
         std::vector<Vector3> vertices;
@@ -47,11 +48,11 @@ struct Mesh : Visual3D{
         bool intersect(Ray ray, HitRay& hit) override;
 };
 
-struct Sphere : Visual3D{
+struct Sphere : public Visual3D{
     float radius;
     Vector3 center;
 
-    Sphere(Vector3 c, float r, Material mat) : center(c), radius(r), Visual3D(mat){}
+    Sphere(Vector3 c, float r, Material mat) :  Visual3D(mat), radius(r), center(c){}
 
     bool intersect(Ray ray, HitRay& hit) override;
 };
@@ -61,6 +62,6 @@ struct PointLight{
     Vector3 color;
     float quantity;
 
-    PointLight(Vector3 p, float q, Vector3 color) : position(p), quantity(q), color(color){}
+    PointLight(Vector3 p, float q, Vector3 color) : position(p),  color(color), quantity(q){}
 };
 
