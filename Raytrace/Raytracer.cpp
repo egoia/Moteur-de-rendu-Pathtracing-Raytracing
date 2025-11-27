@@ -12,10 +12,6 @@ float ATTENUATION_FACTOR = 1;
 int DIFFUSE_ITERATIONS = 0;
 
 
-
-
-
-
 struct World{
     std::vector<Visual3D*> objects;
     std::vector<PointLight> lights;
@@ -240,9 +236,6 @@ struct Camera{
 
 
 };
-
-
-
 
 
 int main(int argc, char *argv[]){

@@ -23,7 +23,7 @@ struct Ray{
     Vector3 direction;
     Vector3 origin;
 
-    bool intersects_triangle(Vector3 A, Vector3 B, Vector3 C, HitRay& hit);
+    bool intersects_triangle(Vector3 A, Vector3 B, Vector3 C, Vector3 normal_A, Vector3 normal_B, Vector3 normal_C, HitRay& hit);
         
 };
 
@@ -34,6 +34,7 @@ struct Visual3D{
         virtual ~Visual3D() = default;
 
     Visual3D(Material mat) : material(mat){}
+    Visual3D() : material(Material(Vector3())){}
 };
 
 struct Mesh : public Visual3D{
@@ -43,7 +44,7 @@ struct Mesh : public Visual3D{
         std::vector<int> triangles;
         std::vector<Vector3> normals;
 
-        static Mesh ReadOBJ(std::string path);
+        static Mesh ReadOFF(std::string path);
 
         bool intersect(Ray ray, HitRay& hit) override;
 };
@@ -51,6 +52,7 @@ struct Mesh : public Visual3D{
 struct Sphere : public Visual3D{
     float radius;
     Vector3 center;
+
 
     Sphere(Vector3 c, float r, Material mat) :  Visual3D(mat), radius(r), center(c){}
 

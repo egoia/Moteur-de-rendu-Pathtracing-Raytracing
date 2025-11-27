@@ -1,6 +1,21 @@
 #include "Object.h"
+#include <fstream>
 
-Mesh Mesh::ReadOBJ(std::string path){
+int Mesh::ReadOFF(std::string path, Mesh& mesh){
+    std::fstream meshStream;
+    meshStream.open(path, std::ios::in);
+    if (!meshStream.is_open()) {
+        std::cerr << "Erreur d'ouverture" << std::endl;
+        return 1;
+    }
+
+    std::string format;
+    meshStream >> format;
+    if(format!="OFF"){
+        std::cerr << "Format du fichier non supporté"<<std::endl;
+        return 1;
+    }
+
     
 };
 
@@ -27,7 +42,7 @@ bool Sphere::intersect(Ray ray, HitRay& hit){
     return false;
 };
 
-bool Ray::intersects_triangle(Vector3 A, Vector3 B, Vector3 C, HitRay& hit){
+bool Ray::intersects_triangle(Vector3 A, Vector3 B, Vector3 C, Vector3 normal_A, Vector3 normal_B, Vector3 normal_C, HitRay& hit){
     constexpr float epsilon = std::numeric_limits<float>::epsilon();
 
     Vector3 edge1 = B - A;
@@ -58,7 +73,8 @@ bool Ray::intersects_triangle(Vector3 A, Vector3 B, Vector3 C, HitRay& hit){
     {
         hit.t = t;
         hit.contact_point = origin + direction * t;
-        hit.normal = Vector3::CrossProduct(edge1, edge2);
+        hit.normal = (1-u-v)*A + u*B + v*C;
+
         return true; //origin + direction * t;
     }
     else // This means that there is a line intersection but not a ray intersection.
@@ -69,7 +85,7 @@ bool Mesh::intersect(Ray ray, HitRay& hit) {
     for (size_t i = 0; i < triangles.size(); i+=3)
     {
         HitRay temp;
-        if(ray.intersects_triangle(vertices[triangles[i]], vertices[triangles[i+1]], vertices[triangles[i+2]], temp)){
+        if(ray.intersects_triangle(center + vertices[triangles[i]], center + vertices[triangles[i+1]], center + vertices[triangles[i+2]], normals[triangles[i]], normals[triangles[i+1]], normals[triangles[i+2]], temp)){
             temp.mat = material;
             hit = temp;
             return true;
